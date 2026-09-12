@@ -673,10 +673,12 @@ func _safe_root_for(layer: CanvasLayer) -> Control:
 		safe_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		safe_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 		layer.add_child(safe_root)
+		# 全画面で覆いたい(ignore_safe_area)オーバーレイが SafeRoot より手前に描かれるよう先頭に置く
+		layer.move_child(safe_root, 0)
 	# SafeRoot作成後に追加されたControlも取り込めるよう、毎回直下を確認する
 	var controls: Array[Node] = []
 	for c in layer.get_children():
-		if c is Control and c != safe_root:
+		if c is Control and c != safe_root and not c.get_meta("ignore_safe_area", false):
 			controls.append(c)
 	for c in controls:
 		c.reparent(safe_root, false)

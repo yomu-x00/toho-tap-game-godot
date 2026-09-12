@@ -86,6 +86,8 @@ func _ready() -> void:
 	bgm_keep_button.pressed.connect(_on_bgm_choice.bind(true))
 	bgm_reset_button.pressed.connect(_on_bgm_choice.bind(false))
 	gacha_video_overlay.pressed.connect(_finish_gacha_video)
+	# 演出中は画面全体を覆いたいので、バナー/安全領域の内側に縮める対象から外す
+	gacha_video_overlay.set_meta("ignore_safe_area", true)
 	gacha_video_player.finished.connect(_finish_gacha_video)
 
 	volume_slider.set_value_no_signal(GameState.master_volume)
@@ -302,12 +304,16 @@ func _on_roll() -> void:
 
 # ガチャ演出動画を再生し、終了(再生完了 or タップスキップ)後に on_done を呼ぶ
 # 演出中はガチャパネル/クイックメニューを閉じ、動画だけが画面いっぱいに見えるようにする
+# 動画の冒頭には「Tap to Start」の文字が焼き込まれているため、その区間は飛ばして再生する
+const GACHA_VIDEO_START_SECONDS := 2.3
+
 func _play_gacha_video(on_done: Callable) -> void:
 	_gacha_video_on_done = on_done
 	gacha_panel.hide()
 	_set_wheel_buttons_visible(false)
 	gacha_video_overlay.show()
 	gacha_video_player.play()
+	gacha_video_player.stream_position = GACHA_VIDEO_START_SECONDS
 
 func _finish_gacha_video() -> void:
 	if not gacha_video_overlay.visible:
