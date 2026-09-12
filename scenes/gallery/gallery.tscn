@@ -1,19 +1,8 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scenes/gallery/gallery.gd" id="1_script"]
 [ext_resource type="FontFile" path="res://assets/fonts/ZenMaruGothic-Medium.ttf" id="2_font"]
 
-[sub_resource type="StyleBoxFlat" id="sb_talk_bg"]
-bg_color = Color(0.13, 0.13, 0.18, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1, 1, 1, 0.12)
-corner_radius_top_left = 16
-corner_radius_top_right = 16
-corner_radius_bottom_right = 16
-corner_radius_bottom_left = 16
 
 [sub_resource type="StyleBoxFlat" id="sb_form_bg"]
 bg_color = Color(0.13, 0.13, 0.18, 1)
@@ -95,22 +84,22 @@ text = "一覧へ"
 anchor_left = 0.04
 anchor_top = 0.07
 anchor_right = 0.96
-anchor_bottom = 0.46
+anchor_bottom = 0.88
 theme_override_styles/panel = SubResource("sb_form_bg")
 
 [node name="FormImage" type="TextureRect" parent="DetailPanel"]
-anchor_left = 0.08
+anchor_left = 0.06
 anchor_top = 0.085
-anchor_right = 0.92
-anchor_bottom = 0.40
+anchor_right = 0.94
+anchor_bottom = 0.82
 expand_mode = 1
 stretch_mode = 5
 
 [node name="FormLabel" type="Label" parent="DetailPanel"]
 anchor_left = 0.08
-anchor_top = 0.405
+anchor_top = 0.83
 anchor_right = 0.92
-anchor_bottom = 0.435
+anchor_bottom = 0.87
 theme_override_fonts/font = ExtResource("2_font")
 theme_override_font_sizes/font_size = 30
 horizontal_alignment = 1
@@ -118,34 +107,7 @@ vertical_alignment = 1
 
 [node name="FormButtons" type="HBoxContainer" parent="DetailPanel"]
 anchor_left = 0.15
-anchor_top = 0.47
+anchor_top = 0.905
 anchor_right = 0.85
-anchor_bottom = 0.51
+anchor_bottom = 0.955
 theme_override_constants/separation = 16
-
-[node name="TalkButtons" type="HBoxContainer" parent="DetailPanel"]
-anchor_left = 0.04
-anchor_top = 0.525
-anchor_right = 0.96
-anchor_bottom = 0.565
-theme_override_constants/separation = 10
-
-[node name="TalkPanel" type="Panel" parent="DetailPanel"]
-anchor_left = 0.04
-anchor_top = 0.575
-anchor_right = 0.96
-anchor_bottom = 0.98
-theme_override_styles/panel = SubResource("sb_talk_bg")
-
-[node name="TalkScroll" type="ScrollContainer" parent="DetailPanel"]
-anchor_left = 0.06
-anchor_top = 0.59
-anchor_right = 0.94
-anchor_bottom = 0.965
-
-[node name="TalkText" type="RichTextLabel" parent="DetailPanel/TalkScroll"]
-size_flags_horizontal = 3
-theme_override_fonts/normal_font = ExtResource("2_font")
-theme_override_font_sizes/normal_font_size = 32
-fit_content = true
-scroll_active = false
