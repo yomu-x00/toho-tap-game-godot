@@ -11,12 +11,15 @@ const JP_FONT := preload("res://assets/fonts/ZenMaruGothic-Medium.ttf")
 const BGM_DISC_ICON := preload("res://assets/sprites/ui/bgm_disc.svg")
 
 @onready var toggle_button: Button = $ToggleButton
-@onready var char_button: Button = $CharButton
-@onready var bgm_button: Button = $BGMButton
-@onready var volume_button: Button = $VolumeButton
-@onready var gacha_button: Button = $GachaButton
-@onready var gallery_button: Button = $GalleryButton
-@onready var title_button: Button = $TitleButton
+@onready var menu_dimmer: Button = $MenuDimmer
+@onready var menu_panel: Panel = $MenuPanel
+@onready var menu_close: Button = $MenuPanel/CloseButton
+@onready var char_button: Button = $MenuPanel/Buttons/CharButton
+@onready var bgm_button: Button = $MenuPanel/Buttons/BGMButton
+@onready var volume_button: Button = $MenuPanel/Buttons/VolumeButton
+@onready var gacha_button: Button = $MenuPanel/Buttons/GachaButton
+@onready var gallery_button: Button = $MenuPanel/Buttons/GalleryButton
+@onready var title_button: Button = $MenuPanel/Buttons/TitleButton
 
 @onready var char_panel: Panel = $CharPanel
 @onready var player_list: VBoxContainer = $CharPanel/Columns/PlayerColumn/PlayerScroll/PlayerList
@@ -65,16 +68,18 @@ var _gacha_video_on_done: Callable
 
 func _ready() -> void:
 	toggle_button.pressed.connect(_on_toggle)
+	menu_dimmer.pressed.connect(close_wheel)
+	menu_close.pressed.connect(close_wheel)
 	char_button.pressed.connect(_on_char_button)
 	bgm_button.pressed.connect(_on_bgm_button)
 	volume_button.pressed.connect(_open_panel.bind(volume_panel))
 	gacha_button.pressed.connect(_on_gacha_button)
 	gallery_button.pressed.connect(func(): gallery_requested.emit())
 	title_button.pressed.connect(func(): title_requested.emit())
-	char_close.pressed.connect(char_panel.hide)
-	bgm_close.pressed.connect(bgm_panel.hide)
-	volume_close.pressed.connect(volume_panel.hide)
-	gacha_close.pressed.connect(gacha_panel.hide)
+	char_close.pressed.connect(_close_sub_panel.bind(char_panel))
+	bgm_close.pressed.connect(_close_sub_panel.bind(bgm_panel))
+	volume_close.pressed.connect(_close_sub_panel.bind(volume_panel))
+	gacha_close.pressed.connect(_close_sub_panel.bind(gacha_panel))
 	roll_button.pressed.connect(_on_roll)
 	ten_roll_button.pressed.connect(_on_roll_ten)
 	roll_button.text = "1回 %dコイン" % GACHA_COST_SINGLE
@@ -121,12 +126,14 @@ func _on_toggle() -> void:
 		get_tree().paused = true
 		_set_wheel_buttons_visible(true)
 
+# メニューをポップアップ(ディマー + 中央パネル)で表示する。バトルUIの上に重ねず全面を占有する
 func _set_wheel_buttons_visible(open: bool) -> void:
-	var buttons := [char_button, bgm_button, volume_button, gacha_button, gallery_button, title_button]
-	for b in buttons:
-		b.visible = open
+	menu_dimmer.visible = open
+	menu_panel.visible = open
+	toggle_button.visible = not open
 	if not open:
 		return
+	var buttons := [char_button, bgm_button, gacha_button, gallery_button, volume_button, title_button]
 	var tween := create_tween()
 	var delay := 0.0
 	for b in buttons:
@@ -137,7 +144,13 @@ func _set_wheel_buttons_visible(open: bool) -> void:
 func _open_panel(panel: Panel) -> void:
 	for p in [char_panel, bgm_panel, volume_panel, gacha_panel]:
 		p.hide()
+	menu_panel.hide()
 	panel.show()
+
+func _close_sub_panel(panel: Panel) -> void:
+	panel.hide()
+	if _wheel_open:
+		menu_panel.show()
 
 func _on_char_button() -> void:
 	_rebuild_char_lists()
@@ -310,7 +323,7 @@ const GACHA_VIDEO_START_SECONDS := 2.3
 func _play_gacha_video(on_done: Callable) -> void:
 	_gacha_video_on_done = on_done
 	gacha_panel.hide()
-	_set_wheel_buttons_visible(false)
+	menu_dimmer.hide()
 	gacha_video_overlay.show()
 	gacha_video_player.play()
 	gacha_video_player.stream_position = GACHA_VIDEO_START_SECONDS
@@ -320,8 +333,8 @@ func _finish_gacha_video() -> void:
 		return
 	gacha_video_player.stop()
 	gacha_video_overlay.hide()
+	menu_dimmer.show()
 	gacha_panel.show()
-	_set_wheel_buttons_visible(true)
 	var on_done := _gacha_video_on_done
 	_gacha_video_on_done = Callable()
 	if on_done.is_valid():

@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scenes/option_wheel/option_wheel.gd" id="1_script"]
 [ext_resource type="FontFile" path="res://assets/fonts/ZenMaruGothic-Medium.ttf" id="2_font"]
@@ -40,6 +40,33 @@ corner_radius_top_right = 24
 corner_radius_bottom_right = 24
 corner_radius_bottom_left = 24
 
+[sub_resource type="StyleBoxFlat" id="sb_menu_btn"]
+bg_color = Color(0.2, 0.2, 0.28, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.9, 0.85, 0.6, 0.7)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="sb_menu_btn_pressed"]
+bg_color = Color(0.45, 0.4, 0.25, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0.95, 0.7, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="sb_dimmer"]
+bg_color = Color(0, 0, 0, 0.65)
+
 [sub_resource type="StyleBoxEmpty" id="sb_empty"]
 
 [node name="OptionWheel" type="CanvasLayer"]
@@ -61,89 +88,113 @@ theme_override_fonts/font = ExtResource("2_font")
 theme_override_font_sizes/font_size = 40
 text = "メニュー"
 
-[node name="CharButton" type="Button" parent="."]
+[node name="MenuDimmer" type="Button" parent="."]
 visible = false
-anchor_left = 1.0
-anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -560.0
-offset_top = -290.0
-offset_right = -300.0
-offset_bottom = -200.0
+focus_mode = 0
+theme_override_styles/normal = SubResource("sb_dimmer")
+theme_override_styles/hover = SubResource("sb_dimmer")
+theme_override_styles/pressed = SubResource("sb_dimmer")
+theme_override_styles/focus = SubResource("sb_dimmer")
+
+[node name="MenuPanel" type="Panel" parent="."]
+visible = false
+anchor_left = 0.08
+anchor_top = 0.16
+anchor_right = 0.92
+anchor_bottom = 0.84
+theme_override_styles/panel = SubResource("sb_panel")
+
+[node name="TitleLabel" type="Label" parent="MenuPanel"]
+anchor_right = 1.0
+anchor_bottom = 0.1
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_font_sizes/font_size = 38
+theme_override_font_sizes/font_size = 52
+theme_override_colors/font_color = Color(0.9, 0.85, 0.6, 1)
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "メニュー"
+
+[node name="Buttons" type="VBoxContainer" parent="MenuPanel"]
+anchor_left = 0.08
+anchor_top = 0.12
+anchor_right = 0.92
+anchor_bottom = 0.86
+theme_override_constants/separation = 22
+
+[node name="CharButton" type="Button" parent="MenuPanel/Buttons"]
+size_flags_vertical = 3
+theme_override_styles/normal = SubResource("sb_menu_btn")
+theme_override_styles/hover = SubResource("sb_menu_btn")
+theme_override_styles/pressed = SubResource("sb_menu_btn_pressed")
+theme_override_styles/focus = SubResource("sb_menu_btn")
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 44
 text = "キャラ変更"
 
-[node name="BGMButton" type="Button" parent="."]
-visible = false
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -280.0
-offset_top = -290.0
-offset_right = -20.0
-offset_bottom = -200.0
+[node name="BGMButton" type="Button" parent="MenuPanel/Buttons"]
+size_flags_vertical = 3
+theme_override_styles/normal = SubResource("sb_menu_btn")
+theme_override_styles/hover = SubResource("sb_menu_btn")
+theme_override_styles/pressed = SubResource("sb_menu_btn_pressed")
+theme_override_styles/focus = SubResource("sb_menu_btn")
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_font_sizes/font_size = 38
+theme_override_font_sizes/font_size = 44
 text = "BGM変更"
 
-[node name="VolumeButton" type="Button" parent="."]
-visible = false
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -560.0
-offset_top = -394.0
-offset_right = -300.0
-offset_bottom = -304.0
+[node name="GachaButton" type="Button" parent="MenuPanel/Buttons"]
+size_flags_vertical = 3
+theme_override_styles/normal = SubResource("sb_menu_btn")
+theme_override_styles/hover = SubResource("sb_menu_btn")
+theme_override_styles/pressed = SubResource("sb_menu_btn_pressed")
+theme_override_styles/focus = SubResource("sb_menu_btn")
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_font_sizes/font_size = 38
-text = "設定"
-
-[node name="GachaButton" type="Button" parent="."]
-visible = false
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -280.0
-offset_top = -394.0
-offset_right = -20.0
-offset_bottom = -304.0
-theme_override_fonts/font = ExtResource("2_font")
-theme_override_font_sizes/font_size = 38
+theme_override_font_sizes/font_size = 44
 text = "ガチャ"
 
-[node name="GalleryButton" type="Button" parent="."]
-visible = false
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -560.0
-offset_top = -498.0
-offset_right = -300.0
-offset_bottom = -408.0
+[node name="GalleryButton" type="Button" parent="MenuPanel/Buttons"]
+size_flags_vertical = 3
+theme_override_styles/normal = SubResource("sb_menu_btn")
+theme_override_styles/hover = SubResource("sb_menu_btn")
+theme_override_styles/pressed = SubResource("sb_menu_btn_pressed")
+theme_override_styles/focus = SubResource("sb_menu_btn")
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_font_sizes/font_size = 38
+theme_override_font_sizes/font_size = 44
 text = "図鑑"
 
-[node name="TitleButton" type="Button" parent="."]
-visible = false
-anchor_left = 1.0
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -280.0
-offset_top = -498.0
-offset_right = -20.0
-offset_bottom = -408.0
+[node name="VolumeButton" type="Button" parent="MenuPanel/Buttons"]
+size_flags_vertical = 3
+theme_override_styles/normal = SubResource("sb_menu_btn")
+theme_override_styles/hover = SubResource("sb_menu_btn")
+theme_override_styles/pressed = SubResource("sb_menu_btn_pressed")
+theme_override_styles/focus = SubResource("sb_menu_btn")
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_font_sizes/font_size = 38
+theme_override_font_sizes/font_size = 44
+text = "設定"
+
+[node name="TitleButton" type="Button" parent="MenuPanel/Buttons"]
+size_flags_vertical = 3
+theme_override_styles/normal = SubResource("sb_menu_btn")
+theme_override_styles/hover = SubResource("sb_menu_btn")
+theme_override_styles/pressed = SubResource("sb_menu_btn_pressed")
+theme_override_styles/focus = SubResource("sb_menu_btn")
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 44
 text = "タイトルへ"
+
+[node name="CloseButton" type="Button" parent="MenuPanel"]
+anchor_left = 0.3
+anchor_top = 0.89
+anchor_right = 0.7
+anchor_bottom = 0.97
+theme_override_styles/normal = SubResource("sb_menu_btn")
+theme_override_styles/hover = SubResource("sb_menu_btn")
+theme_override_styles/pressed = SubResource("sb_menu_btn_pressed")
+theme_override_styles/focus = SubResource("sb_menu_btn")
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 36
+text = "閉じる"
 
 [node name="CharPanel" type="Panel" parent="."]
 visible = false
