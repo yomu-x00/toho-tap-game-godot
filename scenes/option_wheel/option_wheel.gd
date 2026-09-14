@@ -58,6 +58,7 @@ const AD_COIN_REWARDS := [20, 40, 50, 75, 100]  # 動画広告視聴で得られ
 const AD_COIN_PLACEMENT := "gacha_coins"
 var _ad_coin_in_progress := false
 const GACHA_PITY_COUNT := 30      # 天井: この回数引くと未所持の自キャラ確定
+const GACHA_DUPLICATE_COINS := 33 # 所持済みのキャラ/BGMが出たときにコインへ変換する量
 
 var _chars: Array[CharacterData] = []
 var _wheel_open := false
@@ -400,6 +401,9 @@ func _roll_prize() -> Dictionary:
 		prize["new"] = not GameState.owned_bgm_paths.has(prize.path)
 		if prize.new:
 			GameState.owned_bgm_paths.append(prize.path)
+	# 所持済みはコインに変換する
+	if not prize.new:
+		GameState.add_coins(GACHA_DUPLICATE_COINS)
 	return prize
 
 func _on_roll() -> void:
@@ -450,14 +454,14 @@ func _show_single_result(prize: Dictionary) -> void:
 		elif prize.new:
 			result_label.text = "【キャラ】%s を手に入れた！\nキャラ変更で使えるよ" % c.display_name
 		else:
-			result_label.text = "【キャラ】%s\n（すでに持っている）" % c.display_name
+			result_label.text = "【キャラ】%s\n所持済み → コイン +%d" % [c.display_name, GACHA_DUPLICATE_COINS]
 	else:
 		result_image.texture = BGM_DISC_ICON
 		var bname: String = prize.path.get_file().get_basename()
 		if prize.new:
 			result_label.text = "♪【BGM】%s を手に入れた！\nBGM変更で聴けるよ" % bname
 		else:
-			result_label.text = "♪【BGM】%s\n（すでに持っている）" % bname
+			result_label.text = "♪【BGM】%s\n所持済み → コイン +%d" % [bname, GACHA_DUPLICATE_COINS]
 
 # 未所持のキャラ/BGMから1つ確定で付与する(10連の確定枠用。すべて所持済みなら空)
 func _grant_unowned() -> Dictionary:
@@ -493,10 +497,13 @@ func _on_roll_ten() -> void:
 	if not has_new:
 		var guaranteed := _grant_unowned()
 		if not guaranteed.is_empty():
+			# 差し替える枠は所持済み分としてコイン変換済みなので、その分を戻す
+			GameState.add_coins(-GACHA_DUPLICATE_COINS)
 			results[results.size() - 1] = guaranteed
 	var lines: PackedStringArray = []
 	var last_new_char: CharacterData = null
 	var has_bgm := false
+	var duplicate_count := 0
 	for prize in results:
 		if prize.is_empty():
 			continue
@@ -507,6 +514,9 @@ func _on_roll_ten() -> void:
 			mark = "　★天井！"
 		elif prize.new:
 			mark = "　★NEW"
+		else:
+			mark = "　所持済み +%d" % GACHA_DUPLICATE_COINS
+			duplicate_count += 1
 		if prize.type == "char":
 			var c: CharacterData = prize.char
 			lines.append("【キャラ】%s%s" % [c.display_name, mark])
@@ -515,6 +525,8 @@ func _on_roll_ten() -> void:
 		else:
 			lines.append("♪ %s%s" % [prize.path.get_file().get_basename(), mark])
 			has_bgm = true
+	if duplicate_count > 0:
+		lines.append("所持済み %d件 → コイン +%d" % [duplicate_count, duplicate_count * GACHA_DUPLICATE_COINS])
 	GameState.save_progress()
 	_update_gacha_ui()
 	coins_changed.emit()
