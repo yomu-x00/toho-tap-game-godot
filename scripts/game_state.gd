@@ -11,12 +11,39 @@ var owned_bgm_paths: Array[String] = []
 var selected_bgm_path: String = ""
 var bgm_keep_on_opponent_change: bool = true
 
-# レベル・XPは全キャラ共有
-var player_level: int = 1
-var player_xp: int = 0
+# レベル・XP・広告強化分はキャラごとに保存する。
+# player_level などのプロパティは「現在の操作キャラ(session_player_id)」の値を読み書きする
+# char_id -> {"level": int, "xp": int, "boost_hp": float, "boost_atk": float}
+var char_progress: Dictionary = {}
+
+var player_level: int:
+	get: return _progress_entry().level
+	set(v): _progress_entry().level = v
+var player_xp: int:
+	get: return _progress_entry().xp
+	set(v): _progress_entry().xp = v
 # レベルアップ時に動画広告を見て得た追加ステータス(累積・永続)
-var boost_hp: float = 0.0
-var boost_atk: float = 0.0
+var boost_hp: float:
+	get: return _progress_entry().boost_hp
+	set(v): _progress_entry().boost_hp = v
+var boost_atk: float:
+	get: return _progress_entry().boost_atk
+	set(v): _progress_entry().boost_atk = v
+
+# 現在の操作キャラの進行データ。未登録なら Lv1 で作る
+func _progress_entry() -> Dictionary:
+	var cid := session_player_id
+	if cid == "":
+		cid = owned_char_ids[0] if not owned_char_ids.is_empty() else "reimu"
+	if not char_progress.has(cid):
+		char_progress[cid] = {"level": 1, "xp": 0, "boost_hp": 0.0, "boost_atk": 0.0}
+	return char_progress[cid]
+
+# 指定キャラのレベル(キャラ変更画面などの表示用)
+func level_of(char_id: String) -> int:
+	if char_progress.has(char_id):
+		return char_progress[char_id].level
+	return 1
 
 var coins: int = 0
 
@@ -115,7 +142,7 @@ func _notification(what: int) -> void:
 func xp_to_next(level: int) -> int:
 	return XP_BASE_TO_NEXT + (level - 1) * XP_GROWTH_PER_LEVEL
 
-# 経験値を加算し、上がったレベル数を返す(レベルは全キャラ共有)
+# 経験値を加算し、上がったレベル数を返す(現在の操作キャラに加算)
 func add_xp(amount: int) -> int:
 	player_xp += amount
 	var gained := 0
@@ -164,10 +191,8 @@ func add_stat_boost(hp: float, atk: float) -> void:
 
 func save_progress() -> void:
 	var cfg := ConfigFile.new()
-	cfg.set_value("progress", "player_level", player_level)
-	cfg.set_value("progress", "player_xp", player_xp)
-	cfg.set_value("progress", "boost_hp", boost_hp)
-	cfg.set_value("progress", "boost_atk", boost_atk)
+	for cid in char_progress:
+		cfg.set_value("levels", cid, char_progress[cid])
 	cfg.set_value("progress", "coins", coins)
 	cfg.set_value("progress", "cleared_stages", cleared_stages)
 	cfg.set_value("progress", "owned_char_ids", owned_char_ids)
@@ -206,20 +231,26 @@ func load_progress() -> void:
 	bgm_keep_on_opponent_change = cfg.get_value("settings", "bgm_keep_on_opponent_change", true)
 	master_volume = cfg.get_value("settings", "master_volume", 100.0)
 	se_volume = cfg.get_value("settings", "se_volume", 100.0)
-	player_level = cfg.get_value("progress", "player_level", 0)
-	player_xp = cfg.get_value("progress", "player_xp", 0)
-	boost_hp = cfg.get_value("progress", "boost_hp", 0.0)
-	boost_atk = cfg.get_value("progress", "boost_atk", 0.0)
-	if player_level > 0:
-		return
-	# 旧セーブ(キャラ別レベル)からの移行: 一番高いレベルを共有レベルとして引き継ぐ
-	player_level = 1
+	char_progress.clear()
 	if cfg.has_section("levels"):
 		for cid in cfg.get_section_keys("levels"):
 			var entry: Dictionary = cfg.get_value("levels", cid)
-			if entry.get("level", 1) > player_level:
-				player_level = entry.get("level", 1)
-				player_xp = entry.get("xp", 0)
+			char_progress[cid] = {
+				"level": int(entry.get("level", 1)),
+				"xp": int(entry.get("xp", 0)),
+				"boost_hp": float(entry.get("boost_hp", 0.0)),
+				"boost_atk": float(entry.get("boost_atk", 0.0)),
+			}
+	# 旧セーブ(全キャラ共有レベル)からの移行: 共有していた値を所持キャラ全員に引き継ぐ
+	var shared_level: int = cfg.get_value("progress", "player_level", 0)
+	if char_progress.is_empty() and shared_level > 0:
+		for cid in owned_char_ids:
+			char_progress[cid] = {
+				"level": shared_level,
+				"xp": int(cfg.get_value("progress", "player_xp", 0)),
+				"boost_hp": float(cfg.get_value("progress", "boost_hp", 0.0)),
+				"boost_atk": float(cfg.get_value("progress", "boost_atk", 0.0)),
+			}
 
 func all_bgm_paths() -> Array[String]:
 	var result: Array[String] = []

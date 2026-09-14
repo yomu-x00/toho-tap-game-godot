@@ -271,7 +271,7 @@ func start_battle_phase() -> void:
 	battle_active = true
 	_revive_used = false
 
-# レベル(全キャラ共有)に応じたプレイヤーの最大HP・タップ攻撃力を反映
+# 操作キャラのレベルに応じた最大HP・タップ攻撃力を反映
 func _refresh_player_stats() -> void:
 	player_max_hp = player_data.max_hp + GameState.hp_bonus()
 	tap_damage = TAP_DAMAGE + GameState.atk_bonus()

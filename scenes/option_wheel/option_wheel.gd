@@ -253,7 +253,7 @@ func _rebuild_char_lists() -> void:
 		child.queue_free()
 	for c in _chars:
 		if GameState.owned_char_ids.has(c.char_id):
-			var pb := _make_char_button(c, c.display_name + ("\n（使用中）" if c == current_player else ""), true)
+			var pb := _make_char_button(c, "%s Lv.%d%s" % [c.display_name, GameState.level_of(c.char_id), "\n（使用中）" if c == current_player else ""], true)
 			pb.disabled = c == current_player
 			pb.pressed.connect(_on_player_chosen.bind(c))
 			player_list.add_child(pb)
