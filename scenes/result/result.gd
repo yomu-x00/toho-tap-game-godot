@@ -11,6 +11,9 @@ signal next_requested
 signal xp_bonus_requested
 
 const AD_PLACEMENT := "xp_bonus"
+# 「勝利！」表示直後はこの秒数だけボタンを無効にする(会話の連打が流れ込んで「次へ」を押すのを防ぐ)
+const INPUT_LOCK_SECONDS := 0.3
+var _input_locked := false
 var _bonus_amount := 0
 var _bonus_claimed := false
 var _ad_in_progress := false
@@ -29,9 +32,15 @@ func show_result(bonus_xp: int = 0, enemy_texture: Texture2D = null) -> void:
 	_ad_in_progress = false
 	bonus_label.text = ""
 	xp_bonus_button.visible = bonus_xp > 0
-	_refresh_bonus_button()
 	next_button.visible = true
 	visible = true
+	_input_locked = true
+	next_button.disabled = true
+	_refresh_bonus_button()
+	await get_tree().create_timer(INPUT_LOCK_SECONDS).timeout
+	_input_locked = false
+	next_button.disabled = false
+	_refresh_bonus_button()
 
 # ボーナス付与後に呼び、獲得結果を表示する
 func show_bonus_granted(message: String) -> void:
@@ -45,7 +54,7 @@ func _refresh_bonus_button() -> void:
 		xp_bonus_button.text = "XPボーナス獲得済み"
 		return
 	var ready := AdManager.is_ready() and not _ad_in_progress
-	xp_bonus_button.disabled = not ready
+	xp_bonus_button.disabled = not ready or _input_locked
 	if _ad_in_progress:
 		xp_bonus_button.text = "動画を再生中..."
 	elif ready:
