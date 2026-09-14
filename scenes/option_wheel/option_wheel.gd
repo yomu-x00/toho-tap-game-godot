@@ -161,6 +161,30 @@ func _on_bgm_button() -> void:
 	_rebuild_bgm_list()
 	_open_panel(bgm_panel)
 
+# 一覧ボタンをメニューと同じ枠付きスタイルにする(暗いパネル上でも境界が分かるように)
+static var _sb_list_normal: StyleBoxFlat
+static var _sb_list_pressed: StyleBoxFlat
+static var _sb_list_disabled: StyleBoxFlat
+
+static func _make_list_stylebox(bg: Color, border: Color) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(14)
+	return sb
+
+static func _style_list_button(b: Button) -> void:
+	if _sb_list_normal == null:
+		_sb_list_normal = _make_list_stylebox(Color(0.2, 0.2, 0.28, 1), Color(0.9, 0.85, 0.6, 0.7))
+		_sb_list_pressed = _make_list_stylebox(Color(0.45, 0.4, 0.25, 1), Color(1, 0.95, 0.7, 1))
+		_sb_list_disabled = _make_list_stylebox(Color(0.12, 0.12, 0.16, 1), Color(0.9, 0.85, 0.6, 0.25))
+	b.add_theme_stylebox_override("normal", _sb_list_normal)
+	b.add_theme_stylebox_override("hover", _sb_list_normal)
+	b.add_theme_stylebox_override("focus", _sb_list_normal)
+	b.add_theme_stylebox_override("pressed", _sb_list_pressed)
+	b.add_theme_stylebox_override("disabled", _sb_list_disabled)
+
 func _make_list_button(label: String) -> Button:
 	var b := Button.new()
 	b.text = label
@@ -168,6 +192,50 @@ func _make_list_button(label: String) -> Button:
 	b.add_theme_font_size_override("font_size", 36)
 	b.custom_minimum_size = Vector2(0, 84)
 	b.clip_text = true
+	_style_list_button(b)
+	return b
+
+# 図鑑の一覧と同じく、SDキャラ画像付きのボタンを作る。
+# face_right=true なら中央(相手側)を向くよう右向きに、false なら左向きに揃える
+func _make_char_button(c: CharacterData, label_text: String, face_right: bool) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(0, 160)
+	_style_list_button(b)
+
+	var hbox := HBoxContainer.new()
+	hbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	hbox.offset_left = 8
+	hbox.offset_right = -8
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hbox.add_theme_constant_override("separation", 8)
+
+	var icon := TextureRect.new()
+	icon.texture = c.sd_sprite
+	# 素材が左向きなら右を向かせるときに反転、右向きなら左を向かせるときに反転
+	icon.flip_h = c.sd_faces_left if face_right else not c.sd_faces_left
+	icon.custom_minimum_size = Vector2(150, 0)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_font_override("font", JP_FONT)
+	label.add_theme_font_size_override("font_size", 32)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# 操作キャラ列(左)は画像を左・名前を右に、対戦相手列(右)はその逆にして向かい合わせる
+	if face_right:
+		hbox.add_child(icon)
+		hbox.add_child(label)
+	else:
+		hbox.add_child(label)
+		hbox.add_child(icon)
+	b.add_child(hbox)
 	return b
 
 func _rebuild_char_lists() -> void:
@@ -177,7 +245,7 @@ func _rebuild_char_lists() -> void:
 		child.queue_free()
 	for c in _chars:
 		if GameState.owned_char_ids.has(c.char_id):
-			var pb := _make_list_button(c.display_name + ("（使用中）" if c == current_player else ""))
+			var pb := _make_char_button(c, c.display_name + ("\n（使用中）" if c == current_player else ""), true)
 			pb.disabled = c == current_player
 			pb.pressed.connect(_on_player_chosen.bind(c))
 			player_list.add_child(pb)
@@ -187,10 +255,10 @@ func _rebuild_char_lists() -> void:
 		var label_text := c.display_name
 		# 現在の操作キャラでクリア済みの組み合わせが分かるようにする
 		if current_player != null and GameState.is_stage_cleared(current_player.char_id, c.char_id):
-			label_text += "　★クリア済"
+			label_text += "\n★クリア済"
 		if c == current_opponent:
-			label_text += "（対戦中）"
-		var ob := _make_list_button(label_text)
+			label_text += "\n（対戦中）"
+		var ob := _make_char_button(c, label_text, false)
 		ob.disabled = c == current_opponent
 		ob.pressed.connect(_on_opponent_chosen.bind(c))
 		opponent_list.add_child(ob)
