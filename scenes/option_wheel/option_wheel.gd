@@ -71,7 +71,9 @@ const AD_COIN_PLACEMENT := "gacha_coins"
 var _ad_coin_in_progress := false
 const GACHA_PITY_COUNT := 30      # 天井: この回数引くと未所持の自キャラ確定
 const GACHA_DUPLICATE_COINS := 33 # 所持済みのキャラ/BGMが出たときにコインへ変換する量
-const GACHA_TICKET_ENTRIES := 2   # 抽選プールに入れる「引き継ぎの札」の枠数(多いほど出やすい)
+const GACHA_TICKET_CHANCE := 0.2  # 1回の抽選で「引き継ぎの札」が出る確率
+const INHERIT_AD_PLACEMENT := "level_inherit"
+var _inherit_ad_in_progress := false
 
 var _chars: Array[CharacterData] = []
 var _wheel_open := false
@@ -109,6 +111,9 @@ func _ready() -> void:
 	inherit_button.pressed.connect(_open_inherit_panel)
 	inherit_close.pressed.connect(_close_inherit_panel)
 	inherit_apply_button.pressed.connect(_on_inherit_apply)
+	AdManager.availability_changed.connect(func(_a: bool) -> void:
+		if inherit_panel.visible:
+			_refresh_inherit_apply())
 	AdManager.availability_changed.connect(func(_a: bool) -> void: _refresh_ad_coin_button())
 	volume_slider.value_changed.connect(_on_volume_changed)
 	volume_slider.drag_ended.connect(_on_volume_drag_ended)
@@ -223,6 +228,10 @@ func _rebuild_inherit_lists() -> void:
 
 func _refresh_inherit_apply() -> void:
 	var can := false
+	if _inherit_ad_in_progress:
+		inherit_info_label.text = "動画を再生中..."
+		inherit_apply_button.disabled = true
+		return
 	if _inherit_from == null or _inherit_to == null:
 		inherit_info_label.text = "引き継ぎ元と引き継ぎ先を選んでください"
 	elif _inherit_from == _inherit_to:
@@ -230,23 +239,34 @@ func _refresh_inherit_apply() -> void:
 	elif GameState.level_of(_inherit_from.char_id) <= GameState.level_of(_inherit_to.char_id):
 		inherit_info_label.text = "引き継ぎ元のレベルが引き継ぎ先より高い必要があります"
 	elif GameState.inherit_tickets < GameState.INHERIT_TICKETS_NEEDED:
-		inherit_info_label.text = "引き継ぎの札が足りません（ガチャで手に入ります）"
+		inherit_info_label.text = "引き継ぎの札が足りません（ガチャ・敵撃破で手に入ります）"
+	elif not AdManager.is_ready():
+		inherit_info_label.text = "動画を準備中..."
 	else:
-		inherit_info_label.text = "%s の Lv.%d を %s に引き継ぎます" % [
+		inherit_info_label.text = "動画を見ると %s の Lv.%d を %s に引き継ぎます" % [
 			_inherit_from.display_name, GameState.level_of(_inherit_from.char_id), _inherit_to.display_name]
 		can = true
 	inherit_apply_button.disabled = not can
 
+# 動画広告を最後まで見たら引き継ぎを実行する
 func _on_inherit_apply() -> void:
-	if _inherit_from == null or _inherit_to == null:
+	if _inherit_from == null or _inherit_to == null or _inherit_ad_in_progress:
 		return
-	if GameState.inherit_level(_inherit_from.char_id, _inherit_to.char_id):
-		inherit_info_label.text = "%s が Lv.%d になった！" % [_inherit_to.display_name, GameState.level_of(_inherit_to.char_id)]
-		_inherit_from = null
-		_inherit_to = null
-		_rebuild_inherit_lists()
-		inherit_info_label.text = "引き継ぎ完了！"
-		level_inherited.emit()
+	var from_char := _inherit_from
+	var to_char := _inherit_to
+	_inherit_ad_in_progress = true
+	_refresh_inherit_apply()
+	AdManager.show_rewarded(INHERIT_AD_PLACEMENT, func(success: bool) -> void:
+		_inherit_ad_in_progress = false
+		if success and GameState.inherit_level(from_char.char_id, to_char.char_id):
+			_inherit_from = null
+			_inherit_to = null
+			_rebuild_inherit_lists()
+			inherit_info_label.text = "引き継ぎ完了！ %s が Lv.%d になった！" % [
+				to_char.display_name, GameState.level_of(to_char.char_id)]
+			level_inherited.emit()
+		else:
+			_refresh_inherit_apply())
 
 func _on_bgm_button() -> void:
 	bgm_choice_panel.hide()
@@ -471,16 +491,13 @@ func _roll_prize() -> Dictionary:
 		pool.append({"type": "char", "char": c})
 	for p in GameState.all_bgm_paths():
 		pool.append({"type": "bgm", "path": p})
-	for i in GACHA_TICKET_ENTRIES:
-		pool.append({"type": "ticket"})
+	if randf() < GACHA_TICKET_CHANCE:
+		GameState.inherit_tickets += 1
+		return {"type": "ticket", "new": false, "pity": false}
 	if pool.is_empty():
 		return {}
 	var prize: Dictionary = pool.pick_random().duplicate()
 	prize["pity"] = false
-	if prize.type == "ticket":
-		GameState.inherit_tickets += 1
-		prize["new"] = false
-		return prize
 	if prize.type == "char":
 		var c: CharacterData = prize.char
 		prize["new"] = not GameState.owned_char_ids.has(c.char_id)

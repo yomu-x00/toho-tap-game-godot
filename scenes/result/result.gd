@@ -42,6 +42,10 @@ func show_result(bonus_xp: int = 0, enemy_texture: Texture2D = null) -> void:
 	next_button.disabled = false
 	_refresh_bonus_button()
 
+# ボーナスとは無関係のお知らせ(ドロップ等)を表示する。XPボーナスボタンには影響しない
+func show_notice(message: String) -> void:
+	bonus_label.text = message
+
 # ボーナス付与後に呼び、獲得結果を表示する
 func show_bonus_granted(message: String) -> void:
 	_bonus_claimed = true

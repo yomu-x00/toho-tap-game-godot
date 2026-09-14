@@ -50,6 +50,8 @@ var battle_active: bool = false
 var attack_timer: float = 0.0
 # 動画広告での復活はフェーズごとに1回まで
 var _revive_used: bool = false
+# このステージの撃破で引き継ぎの札がドロップしたか(リザルトで表示する)
+var _ticket_dropped_this_stage: bool = false
 const ENEMY_ATTACK_INTERVAL: float = 1.2
 const TAP_DAMAGE: float = 10.0
 const ENEMY_DAMAGE: float = 8.0
@@ -75,6 +77,8 @@ const AD_LEVEL_UP_BOOST_MULT: float = 1.0
 const COIN_PER_TAP: int = 1
 const COIN_PER_FORM: int = 10
 const COIN_STAGE_CLEAR_BONUS: int = 30
+# 敵キャラ撃破(最終形態撃破)時に「引き継ぎの札」がドロップする確率
+const TICKET_DROP_CHANCE: float = 0.33
 
 var _state: State = State.DIALOGUE
 var _last_stage_enemy: CharacterData = null
@@ -428,6 +432,9 @@ func _on_enemy_form_defeated() -> void:
 	if current_phase >= max_phase:
 		reward += COIN_STAGE_CLEAR_BONUS
 		GameState.mark_stage_cleared(player_data.char_id, current_enemy.char_id)
+		_ticket_dropped_this_stage = randf() < TICKET_DROP_CHANCE
+		if _ticket_dropped_this_stage:
+			GameState.inherit_tickets += 1
 	GameState.add_coins(reward)
 	GameState.save_progress()
 	_update_coin_ui()
@@ -472,7 +479,10 @@ func _show_result() -> void:
 	# 敵撃破ごとにインタースティシャル広告を強制表示し、閉じられたらリザルトを出す
 	AdManager.show_interstitial(func() -> void:
 		# 倒した敵の最終形態(衣装破壊)を表示したままリザルトを出す
-		result_layer.show_result(AD_XP_BONUS, current_enemy.battle_forms[max_phase - 1]))
+		result_layer.show_result(AD_XP_BONUS, current_enemy.battle_forms[max_phase - 1])
+		if _ticket_dropped_this_stage:
+			result_layer.show_notice("引き継ぎの札 +1 ドロップ！（所持 %d/%d）" % [
+				GameState.inherit_tickets, GameState.INHERIT_TICKETS_NEEDED]))
 
 # 動画広告視聴の報酬として経験値を付与する(勝利リザルト)
 func _on_xp_bonus() -> void:
