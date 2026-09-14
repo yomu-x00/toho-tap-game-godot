@@ -44,7 +44,6 @@ const BGM_DISC_ICON := preload("res://assets/sprites/ui/bgm_disc.svg")
 @onready var ten_roll_button: Button = $GachaPanel/TenRollButton
 @onready var ad_coin_button: Button = $GachaPanel/AdCoinButton
 @onready var gacha_coin_label: Label = $GachaPanel/GachaCoinLabel
-@onready var pity_label: Label = $GachaPanel/PityLabel
 @onready var result_image: TextureRect = $GachaPanel/ResultImage
 @onready var result_label: Label = $GachaPanel/ResultLabel
 @onready var gacha_close: Button = $GachaPanel/CloseButton
@@ -335,11 +334,6 @@ func _on_gacha_button() -> void:
 
 func _update_gacha_ui() -> void:
 	gacha_coin_label.text = "所持コイン：%d" % GameState.coins
-	var remaining: int = maxi(GACHA_PITY_COUNT - GameState.gacha_pity_count, 1)
-	if _unowned_chars().is_empty():
-		pity_label.text = "自キャラはすべて入手済み！"
-	else:
-		pity_label.text = "あと%d回で未所持キャラ確定！" % remaining
 	roll_button.disabled = GameState.coins < GACHA_COST_SINGLE
 	ten_roll_button.disabled = GameState.coins < GACHA_COST_TEN
 	_refresh_ad_coin_button()
