@@ -71,7 +71,7 @@ const AD_COIN_PLACEMENT := "gacha_coins"
 var _ad_coin_in_progress := false
 const GACHA_PITY_COUNT := 30      # 天井: この回数引くと未所持の自キャラ確定
 const GACHA_DUPLICATE_COINS := 33 # 所持済みのキャラ/BGMが出たときにコインへ変換する量
-const GACHA_TICKET_CHANCE := 0.2  # 1回の抽選で「引き継ぎの札」が出る確率
+const GACHA_TICKET_CHANCE := 0.05 # 1回の抽選で「引き継ぎの札」が出る確率
 const INHERIT_AD_PLACEMENT := "level_inherit"
 var _inherit_ad_in_progress := false
 
@@ -243,7 +243,7 @@ func _refresh_inherit_apply() -> void:
 	elif not AdManager.is_ready():
 		inherit_info_label.text = "動画を準備中..."
 	else:
-		inherit_info_label.text = "動画を見ると %s の Lv.%d を %s に引き継ぎます" % [
+		inherit_info_label.text = "%s の Lv.%d を %s に引き継ぎます" % [
 			_inherit_from.display_name, GameState.level_of(_inherit_from.char_id), _inherit_to.display_name]
 		can = true
 	inherit_apply_button.disabled = not can

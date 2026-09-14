@@ -359,7 +359,7 @@ anchor_right = 0.9
 anchor_bottom = 0.87
 theme_override_fonts/font = ExtResource("2_font")
 theme_override_font_sizes/font_size = 36
-text = "▶ 動画を見て引き継ぐ（札 10枚）"
+text = "引き継ぐ（札 10枚）"
 
 [node name="CloseButton" type="Button" parent="InheritPanel"]
 anchor_left = 0.3
