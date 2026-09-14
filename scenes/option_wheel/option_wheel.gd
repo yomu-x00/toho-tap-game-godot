@@ -6,6 +6,8 @@ signal bgm_selected(path: String)
 signal gallery_requested
 signal title_requested
 signal coins_changed
+# レベル引き継ぎで操作キャラのステータスが変わった可能性があるときに通知
+signal level_inherited
 
 const JP_FONT := preload("res://assets/fonts/ZenMaruGothic-Medium.ttf")
 const BGM_DISC_ICON := preload("res://assets/sprites/ui/bgm_disc.svg")
@@ -43,6 +45,16 @@ const BGM_DISC_ICON := preload("res://assets/sprites/ui/bgm_disc.svg")
 @onready var roll_button: Button = $GachaPanel/RollButton
 @onready var ten_roll_button: Button = $GachaPanel/TenRollButton
 @onready var ad_coin_button: Button = $GachaPanel/AdCoinButton
+@onready var inherit_button: Button = $CharPanel/InheritButton
+@onready var inherit_panel: Panel = $InheritPanel
+@onready var inherit_ticket_label: Label = $InheritPanel/TicketLabel
+@onready var inherit_from_list: VBoxContainer = $InheritPanel/Columns/FromColumn/FromScroll/FromList
+@onready var inherit_to_list: VBoxContainer = $InheritPanel/Columns/ToColumn/ToScroll/ToList
+@onready var inherit_info_label: Label = $InheritPanel/InfoLabel
+@onready var inherit_apply_button: Button = $InheritPanel/ApplyButton
+@onready var inherit_close: Button = $InheritPanel/CloseButton
+var _inherit_from: CharacterData
+var _inherit_to: CharacterData
 @onready var gacha_coin_label: Label = $GachaPanel/GachaCoinLabel
 @onready var result_image: TextureRect = $GachaPanel/ResultImage
 @onready var result_label: Label = $GachaPanel/ResultLabel
@@ -59,6 +71,7 @@ const AD_COIN_PLACEMENT := "gacha_coins"
 var _ad_coin_in_progress := false
 const GACHA_PITY_COUNT := 30      # 天井: この回数引くと未所持の自キャラ確定
 const GACHA_DUPLICATE_COINS := 33 # 所持済みのキャラ/BGMが出たときにコインへ変換する量
+const GACHA_TICKET_ENTRIES := 2   # 抽選プールに入れる「引き継ぎの札」の枠数(多いほど出やすい)
 
 var _chars: Array[CharacterData] = []
 var _wheel_open := false
@@ -91,6 +104,11 @@ func _ready() -> void:
 	for b in [roll_button, ten_roll_button, ad_coin_button]:
 		_style_list_button(b)
 	ad_coin_button.pressed.connect(_on_ad_coin_button)
+	_style_list_button(inherit_button)
+	_style_list_button(inherit_apply_button)
+	inherit_button.pressed.connect(_open_inherit_panel)
+	inherit_close.pressed.connect(_close_inherit_panel)
+	inherit_apply_button.pressed.connect(_on_inherit_apply)
 	AdManager.availability_changed.connect(func(_a: bool) -> void: _refresh_ad_coin_button())
 	volume_slider.value_changed.connect(_on_volume_changed)
 	volume_slider.drag_ended.connect(_on_volume_drag_ended)
@@ -118,7 +136,7 @@ func setup(chars: Array[CharacterData]) -> void:
 func close_wheel() -> void:
 	_wheel_open = false
 	_set_wheel_buttons_visible(false)
-	for p in [char_panel, bgm_panel, volume_panel, gacha_panel]:
+	for p in [char_panel, bgm_panel, volume_panel, gacha_panel, inherit_panel]:
 		p.hide()
 	if gacha_video_overlay.visible:
 		gacha_video_player.stop()
@@ -150,7 +168,7 @@ func _set_wheel_buttons_visible(open: bool) -> void:
 		delay += 0.05
 
 func _open_panel(panel: Panel) -> void:
-	for p in [char_panel, bgm_panel, volume_panel, gacha_panel]:
+	for p in [char_panel, bgm_panel, volume_panel, gacha_panel, inherit_panel]:
 		p.hide()
 	menu_panel.hide()
 	panel.show()
@@ -162,7 +180,73 @@ func _close_sub_panel(panel: Panel) -> void:
 
 func _on_char_button() -> void:
 	_rebuild_char_lists()
+	inherit_button.text = "レベル引き継ぎ（札 %d/%d）" % [GameState.inherit_tickets, GameState.INHERIT_TICKETS_NEEDED]
 	_open_panel(char_panel)
+
+# --- レベル引き継ぎ ---
+func _open_inherit_panel() -> void:
+	_inherit_from = null
+	_inherit_to = null
+	_rebuild_inherit_lists()
+	char_panel.hide()
+	inherit_panel.show()
+
+func _close_inherit_panel() -> void:
+	inherit_panel.hide()
+	_on_char_button()
+
+func _rebuild_inherit_lists() -> void:
+	for child in inherit_from_list.get_children():
+		child.queue_free()
+	for child in inherit_to_list.get_children():
+		child.queue_free()
+	inherit_ticket_label.text = "引き継ぎの札 %d/%d" % [GameState.inherit_tickets, GameState.INHERIT_TICKETS_NEEDED]
+	for c in _chars:
+		if not GameState.owned_char_ids.has(c.char_id):
+			continue
+		var label_text := "%s Lv.%d" % [c.display_name, GameState.level_of(c.char_id)]
+		var fb := _make_char_button(c, label_text, true)
+		fb.toggle_mode = true
+		fb.button_pressed = c == _inherit_from
+		fb.pressed.connect(func() -> void:
+			_inherit_from = c
+			_rebuild_inherit_lists())
+		inherit_from_list.add_child(fb)
+		var tb := _make_char_button(c, label_text, false)
+		tb.toggle_mode = true
+		tb.button_pressed = c == _inherit_to
+		tb.pressed.connect(func() -> void:
+			_inherit_to = c
+			_rebuild_inherit_lists())
+		inherit_to_list.add_child(tb)
+	_refresh_inherit_apply()
+
+func _refresh_inherit_apply() -> void:
+	var can := false
+	if _inherit_from == null or _inherit_to == null:
+		inherit_info_label.text = "引き継ぎ元と引き継ぎ先を選んでください"
+	elif _inherit_from == _inherit_to:
+		inherit_info_label.text = "同じキャラには引き継げません"
+	elif GameState.level_of(_inherit_from.char_id) <= GameState.level_of(_inherit_to.char_id):
+		inherit_info_label.text = "引き継ぎ元のレベルが引き継ぎ先より高い必要があります"
+	elif GameState.inherit_tickets < GameState.INHERIT_TICKETS_NEEDED:
+		inherit_info_label.text = "引き継ぎの札が足りません（ガチャで手に入ります）"
+	else:
+		inherit_info_label.text = "%s の Lv.%d を %s に引き継ぎます" % [
+			_inherit_from.display_name, GameState.level_of(_inherit_from.char_id), _inherit_to.display_name]
+		can = true
+	inherit_apply_button.disabled = not can
+
+func _on_inherit_apply() -> void:
+	if _inherit_from == null or _inherit_to == null:
+		return
+	if GameState.inherit_level(_inherit_from.char_id, _inherit_to.char_id):
+		inherit_info_label.text = "%s が Lv.%d になった！" % [_inherit_to.display_name, GameState.level_of(_inherit_to.char_id)]
+		_inherit_from = null
+		_inherit_to = null
+		_rebuild_inherit_lists()
+		inherit_info_label.text = "引き継ぎ完了！"
+		level_inherited.emit()
 
 func _on_bgm_button() -> void:
 	bgm_choice_panel.hide()
@@ -387,10 +471,16 @@ func _roll_prize() -> Dictionary:
 		pool.append({"type": "char", "char": c})
 	for p in GameState.all_bgm_paths():
 		pool.append({"type": "bgm", "path": p})
+	for i in GACHA_TICKET_ENTRIES:
+		pool.append({"type": "ticket"})
 	if pool.is_empty():
 		return {}
 	var prize: Dictionary = pool.pick_random().duplicate()
 	prize["pity"] = false
+	if prize.type == "ticket":
+		GameState.inherit_tickets += 1
+		prize["new"] = false
+		return prize
 	if prize.type == "char":
 		var c: CharacterData = prize.char
 		prize["new"] = not GameState.owned_char_ids.has(c.char_id)
@@ -446,7 +536,10 @@ func _show_single_result(prize: Dictionary) -> void:
 	if prize.is_empty():
 		return
 	result_label.add_theme_font_size_override("font_size", 36)
-	if prize.type == "char":
+	if prize.type == "ticket":
+		result_image.texture = null
+		result_label.text = "【引き継ぎの札】+1\n所持 %d/%d" % [GameState.inherit_tickets, GameState.INHERIT_TICKETS_NEEDED]
+	elif prize.type == "char":
 		var c: CharacterData = prize.char
 		result_image.texture = c.tatie_sprite
 		if prize.pity:
@@ -497,8 +590,12 @@ func _on_roll_ten() -> void:
 	if not has_new:
 		var guaranteed := _grant_unowned()
 		if not guaranteed.is_empty():
-			# 差し替える枠は所持済み分としてコイン変換済みなので、その分を戻す
-			GameState.add_coins(-GACHA_DUPLICATE_COINS)
+			# 差し替える枠で付与済みのもの(札 or 所持済みのコイン変換)を戻す
+			var replaced: Dictionary = results[results.size() - 1]
+			if replaced.get("type", "") == "ticket":
+				GameState.inherit_tickets -= 1
+			elif not replaced.is_empty():
+				GameState.add_coins(-GACHA_DUPLICATE_COINS)
 			results[results.size() - 1] = guaranteed
 	var lines: PackedStringArray = []
 	var last_new_char: CharacterData = null
@@ -506,6 +603,9 @@ func _on_roll_ten() -> void:
 	var duplicate_count := 0
 	for prize in results:
 		if prize.is_empty():
+			continue
+		if prize.type == "ticket":
+			lines.append("【引き継ぎの札】+1")
 			continue
 		var mark := ""
 		if prize.get("guaranteed", false):
@@ -527,6 +627,7 @@ func _on_roll_ten() -> void:
 			has_bgm = true
 	if duplicate_count > 0:
 		lines.append("所持済み %d件 → コイン +%d" % [duplicate_count, duplicate_count * GACHA_DUPLICATE_COINS])
+	lines.append("引き継ぎの札 所持 %d/%d" % [GameState.inherit_tickets, GameState.INHERIT_TICKETS_NEEDED])
 	GameState.save_progress()
 	_update_gacha_ui()
 	coins_changed.emit()

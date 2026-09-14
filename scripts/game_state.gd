@@ -45,6 +45,22 @@ func level_of(char_id: String) -> int:
 		return char_progress[char_id].level
 	return 1
 
+# from_id のレベル・XP・強化分を to_id にコピーできるか
+func can_inherit_level(from_id: String, to_id: String) -> bool:
+	return from_id != to_id \
+		and inherit_tickets >= INHERIT_TICKETS_NEEDED \
+		and level_of(from_id) > level_of(to_id)
+
+# 引き継ぎの札を消費して、from_id の成長を to_id に引き継ぐ(from_id 側はそのまま)
+func inherit_level(from_id: String, to_id: String) -> bool:
+	if not can_inherit_level(from_id, to_id):
+		return false
+	var src: Dictionary = char_progress.get(from_id, {"level": 1, "xp": 0, "boost_hp": 0.0, "boost_atk": 0.0})
+	char_progress[to_id] = src.duplicate()
+	inherit_tickets -= INHERIT_TICKETS_NEEDED
+	save_progress()
+	return true
+
 var coins: int = 0
 
 # クリア済みステージ。"操作キャラID_vs_敵キャラID" 形式で記録
@@ -59,6 +75,9 @@ var session_enemy_id: String = ""
 
 # ガチャ天井: 未所持キャラを引かずに回した回数
 var gacha_pity_count: int = 0
+# 引き継ぎの札。INHERIT_TICKETS_NEEDED 枚で1キャラのレベルを別キャラへ引き継げる
+var inherit_tickets: int = 0
+const INHERIT_TICKETS_NEEDED := 10
 
 # 音量設定(0-100)
 var master_volume: float = 100.0
@@ -198,6 +217,7 @@ func save_progress() -> void:
 	cfg.set_value("progress", "owned_char_ids", owned_char_ids)
 	cfg.set_value("progress", "owned_bgm_paths", owned_bgm_paths)
 	cfg.set_value("progress", "gacha_pity_count", gacha_pity_count)
+	cfg.set_value("progress", "inherit_tickets", inherit_tickets)
 	cfg.set_value("session", "player_id", session_player_id)
 	cfg.set_value("session", "enemy_id", session_enemy_id)
 	cfg.set_value("settings", "skip_cleared_dialogue", skip_cleared_dialogue)
@@ -241,16 +261,7 @@ func load_progress() -> void:
 				"boost_hp": float(entry.get("boost_hp", 0.0)),
 				"boost_atk": float(entry.get("boost_atk", 0.0)),
 			}
-	# 旧セーブ(全キャラ共有レベル)からの移行: 共有していた値を所持キャラ全員に引き継ぐ
-	var shared_level: int = cfg.get_value("progress", "player_level", 0)
-	if char_progress.is_empty() and shared_level > 0:
-		for cid in owned_char_ids:
-			char_progress[cid] = {
-				"level": shared_level,
-				"xp": int(cfg.get_value("progress", "player_xp", 0)),
-				"boost_hp": float(cfg.get_value("progress", "boost_hp", 0.0)),
-				"boost_atk": float(cfg.get_value("progress", "boost_atk", 0.0)),
-			}
+	inherit_tickets = cfg.get_value("progress", "inherit_tickets", 0)
 
 func all_bgm_paths() -> Array[String]:
 	var result: Array[String] = []
