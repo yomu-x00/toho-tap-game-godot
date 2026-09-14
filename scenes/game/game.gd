@@ -54,8 +54,6 @@ const ENEMY_ATTACK_INTERVAL: float = 1.2
 const TAP_DAMAGE: float = 10.0
 const ENEMY_DAMAGE: float = 8.0
 const XP_PER_TAP: int = 1
-# 撃破・敗北から会話に入るまでの間(秒)。連打中に会話へ突入して読み飛ばすのを防ぐ
-const TALK_START_DELAY: float = 1.0
 # 動画広告リワード: 敗北時に復活したときのHP回復割合(最大HPに対する比率)
 const AD_REVIVE_HP_RATIO: float = 1.0
 # 動画広告リワード: 勝利リザルトで付与する経験値
@@ -427,8 +425,6 @@ func _on_enemy_form_defeated() -> void:
 	GameState.add_coins(reward)
 	GameState.save_progress()
 	_update_coin_ui()
-	# 撃破の余韻を見せてから会話へ。この間はタップしても何も起きない
-	await get_tree().create_timer(TALK_START_DELAY).timeout
 	if current_phase < max_phase:
 		current_phase += 1
 		_start_middle_talk()
@@ -491,8 +487,6 @@ func _on_next_enemy() -> void:
 func _on_player_death() -> void:
 	battle_active = false
 	_state = State.LOSE
-	# 倒された余韻を見せてから会話へ。この間はタップしても何も起きない
-	await get_tree().create_timer(TALK_START_DELAY).timeout
 	battle_layer.visible = false
 	option_wheel.visible = false
 	if _skip_talk_enabled():

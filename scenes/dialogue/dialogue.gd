@@ -36,8 +36,8 @@ func _ready() -> void:
 	blink.tween_property(advance_hint, "modulate:a", 0.2, 0.6)
 	blink.tween_property(advance_hint, "modulate:a", 1.0, 0.6)
 
-# 会話開始直後・行送り直後はこの秒数だけタップを無視する(連打での読み飛ばし防止)
-const ADVANCE_LOCK_SECONDS := 0.4
+# 会話開始直後・行送り直後はこの秒数だけタップを無視する(戦闘の連打が会話に流れ込むのを防ぐ)
+const ADVANCE_LOCK_SECONDS := 0.3
 var _advance_unlock_msec: int = 0
 
 func start_dialogue(csv_path: String, left_char: CharacterData, right_char: CharacterData, on_finished: Callable) -> void:
