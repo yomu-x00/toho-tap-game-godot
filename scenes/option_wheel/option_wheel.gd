@@ -54,7 +54,7 @@ const BGM_DISC_ICON := preload("res://assets/sprites/ui/bgm_disc.svg")
 # ガチャ設定(ここの定数で調整する)
 const GACHA_COST_SINGLE := 100    # 1回の消費コイン
 const GACHA_COST_TEN := 1000      # 10連の消費コイン(割引なし)
-const AD_COIN_REWARD := 100       # 動画広告視聴で得られるコイン(=1回分)
+const AD_COIN_REWARDS := [20, 40, 50, 75, 100]  # 動画広告視聴で得られるコイン(この中からランダム)
 const AD_COIN_PLACEMENT := "gacha_coins"
 var _ad_coin_in_progress := false
 const GACHA_PITY_COUNT := 30      # 天井: この回数引くと未所持の自キャラ確定
@@ -344,7 +344,7 @@ func _refresh_ad_coin_button() -> void:
 	if _ad_coin_in_progress:
 		ad_coin_button.text = "動画を再生中..."
 	elif ready:
-		ad_coin_button.text = "▶ 動画を見てコイン +%d" % AD_COIN_REWARD
+		ad_coin_button.text = "▶ 動画を見てコインGET"
 	else:
 		ad_coin_button.text = "動画を準備中..."
 
@@ -357,9 +357,11 @@ func _on_ad_coin_button() -> void:
 	AdManager.show_rewarded(AD_COIN_PLACEMENT, func(success: bool) -> void:
 		_ad_coin_in_progress = false
 		if success:
-			GameState.add_coins(AD_COIN_REWARD)
+			var reward: int = AD_COIN_REWARDS.pick_random()
+			GameState.add_coins(reward)
 			GameState.save_progress()
-			result_label.text = "コイン +%d GET！" % AD_COIN_REWARD
+			result_image.texture = null
+			result_label.text = "コイン +%d GET！" % reward
 			coins_changed.emit()
 		_update_gacha_ui())
 
