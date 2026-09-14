@@ -434,25 +434,34 @@ text = "所持コイン：0"
 anchor_left = 0.05
 anchor_top = 0.08
 anchor_right = 0.485
-anchor_bottom = 0.165
+anchor_bottom = 0.2
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_font_sizes/font_size = 34
+theme_override_font_sizes/font_size = 40
 text = "1回 100コイン"
 
 [node name="TenRollButton" type="Button" parent="GachaPanel"]
 anchor_left = 0.515
 anchor_top = 0.08
 anchor_right = 0.95
-anchor_bottom = 0.165
+anchor_bottom = 0.2
 theme_override_fonts/font = ExtResource("2_font")
-theme_override_font_sizes/font_size = 34
-text = "10連 900コイン"
+theme_override_font_sizes/font_size = 40
+text = "10連 1000コイン"
+
+[node name="AdCoinButton" type="Button" parent="GachaPanel"]
+anchor_left = 0.05
+anchor_top = 0.215
+anchor_right = 0.95
+anchor_bottom = 0.3
+theme_override_fonts/font = ExtResource("2_font")
+theme_override_font_sizes/font_size = 36
+text = "▶ 動画を見てコインGET"
 
 [node name="PityLabel" type="Label" parent="GachaPanel"]
 anchor_left = 0.05
-anchor_top = 0.175
+anchor_top = 0.31
 anchor_right = 0.95
-anchor_bottom = 0.225
+anchor_bottom = 0.355
 theme_override_fonts/font = ExtResource("2_font")
 theme_override_font_sizes/font_size = 28
 theme_override_colors/font_color = Color(0.75, 0.9, 1, 1)
@@ -462,15 +471,15 @@ text = ""
 
 [node name="ResultImage" type="TextureRect" parent="GachaPanel"]
 anchor_left = 0.2
-anchor_top = 0.24
+anchor_top = 0.37
 anchor_right = 0.8
-anchor_bottom = 0.6
+anchor_bottom = 0.66
 expand_mode = 1
 stretch_mode = 5
 
 [node name="ResultLabel" type="Label" parent="GachaPanel"]
 anchor_left = 0.05
-anchor_top = 0.61
+anchor_top = 0.67
 anchor_right = 0.95
 anchor_bottom = 0.87
 theme_override_fonts/font = ExtResource("2_font")

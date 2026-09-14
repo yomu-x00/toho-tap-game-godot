@@ -42,6 +42,7 @@ const BGM_DISC_ICON := preload("res://assets/sprites/ui/bgm_disc.svg")
 @onready var gacha_panel: Panel = $GachaPanel
 @onready var roll_button: Button = $GachaPanel/RollButton
 @onready var ten_roll_button: Button = $GachaPanel/TenRollButton
+@onready var ad_coin_button: Button = $GachaPanel/AdCoinButton
 @onready var gacha_coin_label: Label = $GachaPanel/GachaCoinLabel
 @onready var pity_label: Label = $GachaPanel/PityLabel
 @onready var result_image: TextureRect = $GachaPanel/ResultImage
@@ -54,6 +55,9 @@ const BGM_DISC_ICON := preload("res://assets/sprites/ui/bgm_disc.svg")
 # ガチャ設定(ここの定数で調整する)
 const GACHA_COST_SINGLE := 100    # 1回の消費コイン
 const GACHA_COST_TEN := 1000      # 10連の消費コイン(割引なし)
+const AD_COIN_REWARD := 100       # 動画広告視聴で得られるコイン(=1回分)
+const AD_COIN_PLACEMENT := "gacha_coins"
+var _ad_coin_in_progress := false
 const GACHA_PITY_COUNT := 30      # 天井: この回数引くと未所持の自キャラ確定
 
 var _chars: Array[CharacterData] = []
@@ -84,6 +88,10 @@ func _ready() -> void:
 	ten_roll_button.pressed.connect(_on_roll_ten)
 	roll_button.text = "1回 %dコイン" % GACHA_COST_SINGLE
 	ten_roll_button.text = "10連 %dコイン" % GACHA_COST_TEN
+	for b in [roll_button, ten_roll_button, ad_coin_button]:
+		_style_list_button(b)
+	ad_coin_button.pressed.connect(_on_ad_coin_button)
+	AdManager.availability_changed.connect(func(_a: bool) -> void: _refresh_ad_coin_button())
 	volume_slider.value_changed.connect(_on_volume_changed)
 	volume_slider.drag_ended.connect(_on_volume_drag_ended)
 	se_slider.value_changed.connect(_on_se_volume_changed)
@@ -334,6 +342,32 @@ func _update_gacha_ui() -> void:
 		pity_label.text = "あと%d回で未所持キャラ確定！" % remaining
 	roll_button.disabled = GameState.coins < GACHA_COST_SINGLE
 	ten_roll_button.disabled = GameState.coins < GACHA_COST_TEN
+	_refresh_ad_coin_button()
+
+func _refresh_ad_coin_button() -> void:
+	var ready := AdManager.is_ready() and not _ad_coin_in_progress
+	ad_coin_button.disabled = not ready
+	if _ad_coin_in_progress:
+		ad_coin_button.text = "動画を再生中..."
+	elif ready:
+		ad_coin_button.text = "▶ 動画を見てコイン +%d" % AD_COIN_REWARD
+	else:
+		ad_coin_button.text = "動画を準備中..."
+
+# 動画広告を最後まで見たらコインを付与する
+func _on_ad_coin_button() -> void:
+	if _ad_coin_in_progress:
+		return
+	_ad_coin_in_progress = true
+	_refresh_ad_coin_button()
+	AdManager.show_rewarded(AD_COIN_PLACEMENT, func(success: bool) -> void:
+		_ad_coin_in_progress = false
+		if success:
+			GameState.add_coins(AD_COIN_REWARD)
+			GameState.save_progress()
+			result_label.text = "コイン +%d GET！" % AD_COIN_REWARD
+			coins_changed.emit()
+		_update_gacha_ui())
 
 func _unowned_chars() -> Array[CharacterData]:
 	var result: Array[CharacterData] = []
