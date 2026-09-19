@@ -8,13 +8,15 @@ extends Node
 # エディタ・PCではストアが無いので、purchase_* は失敗を返す(擬似購入はしない)。
 
 signal ads_removed_changed(removed: bool)
-# 購入・復元が失敗/キャンセルされたときの表示用メッセージ
+# 購入・復元が失敗/キャンセルされたときの表示用メッセージ(キャンセル時は空文字)
 signal purchase_failed(message: String)
 # 商品情報(価格)を取得できたとき
 signal product_info_updated
 
 # App Store Connect / Google Play Console で作る商品ID(非消耗型)。変える場合はここだけ
 const PRODUCT_REMOVE_ADS := "com.yomu.tohotap.remove_ads"
+# リクエスト用のクラス・enum は godot-iap の types.gd にある
+const IapTypes = preload("res://addons/godot-iap/types.gd")
 
 var ads_removed: bool = false
 # ストアから取れた表示価格(例 "¥490")。未取得なら空
@@ -46,9 +48,9 @@ func _connect_store() -> void:
 	await _sync_entitlements()
 
 func _fetch_price() -> void:
-	var request = _iap.ProductRequest.new()
+	var request = IapTypes.ProductRequest.new()
 	request.skus = [PRODUCT_REMOVE_ADS]
-	request.type = _iap.ProductQueryType.IN_APP
+	request.type = IapTypes.ProductQueryType.IN_APP
 	var products: Array = await _iap.fetch_products(request)
 	for p in products:
 		if p.id == PRODUCT_REMOVE_ADS:
@@ -60,7 +62,7 @@ func _sync_entitlements() -> void:
 	var purchases: Array = await _iap.get_available_purchases()
 	var owned := false
 	for p in purchases:
-		if p.product_id == PRODUCT_REMOVE_ADS and p.purchase_state == _iap.Types.PurchaseState.PURCHASED:
+		if p.product_id == PRODUCT_REMOVE_ADS and p.purchase_state == IapTypes.PurchaseState.PURCHASED:
 			owned = true
 	if owned:
 		_set_ads_removed(true)
@@ -72,13 +74,13 @@ func purchase_remove_ads() -> void:
 		purchase_failed.emit("ストアに接続できません")
 		return
 	_busy = true
-	var props = _iap.RequestPurchaseProps.new()
-	props.request = _iap.RequestPurchasePropsByPlatforms.new()
-	props.request.apple = _iap.RequestPurchaseIosProps.new()
+	var props = IapTypes.RequestPurchaseProps.new()
+	props.request = IapTypes.RequestPurchasePropsByPlatforms.new()
+	props.request.apple = IapTypes.RequestPurchaseIosProps.new()
 	props.request.apple.sku = PRODUCT_REMOVE_ADS
-	props.request.google = _iap.RequestPurchaseAndroidProps.new()
+	props.request.google = IapTypes.RequestPurchaseAndroidProps.new()
 	props.request.google.skus = [PRODUCT_REMOVE_ADS]
-	props.type = _iap.ProductQueryType.IN_APP
+	props.type = IapTypes.ProductQueryType.IN_APP
 	_iap.request_purchase(props)
 
 func restore_purchases() -> void:
@@ -88,7 +90,11 @@ func restore_purchases() -> void:
 		purchase_failed.emit("ストアに接続できません")
 		return
 	_busy = true
-	await _iap.restore_purchases()
+	var result = await _iap.restore_purchases()
+	if result == null or not result.success:
+		# 失敗理由は purchase_error 経由で通知済み
+		_busy = false
+		return
 	await _sync_entitlements()
 	_busy = false
 	if not ads_removed:
@@ -109,6 +115,8 @@ func _on_purchase_error(error: Dictionary) -> void:
 	_busy = false
 	var code := str(error.get("code", ""))
 	if code == "user-cancelled":
+		# キャンセルはエラー扱いしない。空メッセージで「処理中」表示だけ消してもらう
+		purchase_failed.emit("")
 		return
 	purchase_failed.emit(str(error.get("message", "購入に失敗しました")))
 
@@ -118,4 +126,6 @@ func _set_ads_removed(removed: bool) -> void:
 	ads_removed = removed
 	GameState.ads_removed = removed
 	GameState.save_progress()
+	if removed:
+		AdManager.on_ads_removed()
 	ads_removed_changed.emit(removed)

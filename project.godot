@@ -33,6 +33,8 @@ general/ios/mix_with_others=true
 
 GameState="*res://scripts/game_state.gd"
 AdManager="*res://scripts/ad_manager.gd"
+GodotIapPlugin="*res://addons/godot-iap/godot_iap.gd"
+IAPManager="*res://scripts/iap_manager.gd"
 
 [display]
 
@@ -44,7 +46,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/admob/plugin.cfg")
+enabled=PackedStringArray("res://addons/admob/plugin.cfg", "res://addons/godot-iap/plugin.cfg")
 
 [internationalization]
 

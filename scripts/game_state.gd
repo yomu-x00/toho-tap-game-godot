@@ -6,6 +6,17 @@ const XP_GROWTH_PER_LEVEL := 5
 const HP_PER_LEVEL := 10.0
 const ATK_PER_LEVEL := 2.0
 
+# 利用規約・プライバシーポリシー(Cloudflare Pages の site/ を公開したもの)
+const TERMS_URL := "https://touhou-tap-game.pages.dev/terms"
+const PRIVACY_URL := "https://touhou-tap-game.pages.dev/privacy"
+# 初回起動時の同意で確認する対象年齢(App Store の年齢区分に合わせる)
+const MIN_AGE := 16
+# 規約を大きく変えたら上げる。保存値より新しければ起動時にもう一度同意を求める
+const TERMS_VERSION := 1
+
+# 初回起動時の年齢確認・規約同意が済んだとき
+signal terms_accepted
+
 var owned_char_ids: Array[String] = ["reimu", "marisa"]
 var owned_bgm_paths: Array[String] = []
 var selected_bgm_path: String = ""
@@ -78,6 +89,13 @@ var gacha_pity_count: int = 0
 # 引き継ぎの札。INHERIT_TICKETS_NEEDED 枚で1キャラのレベルを別キャラへ引き継げる
 var inherit_tickets: int = 0
 const INHERIT_TICKETS_NEEDED := 10
+
+# 広告削除(課金)を購入済みか。正は App Store 側で、IAPManager が起動時に同期する。
+# ここはストアに繋がらないとき用のキャッシュ
+var ads_removed: bool = false
+
+# 同意済みの規約バージョン(0 = 未同意)
+var accepted_terms_version: int = 0
 
 # 音量設定(0-100)
 var master_volume: float = 100.0
@@ -208,6 +226,14 @@ func add_stat_boost(hp: float, atk: float) -> void:
 	boost_atk += atk
 	save_progress()
 
+func has_accepted_terms() -> bool:
+	return accepted_terms_version >= TERMS_VERSION
+
+func accept_terms() -> void:
+	accepted_terms_version = TERMS_VERSION
+	save_progress()
+	terms_accepted.emit()
+
 func save_progress() -> void:
 	var cfg := ConfigFile.new()
 	for cid in char_progress:
@@ -218,6 +244,8 @@ func save_progress() -> void:
 	cfg.set_value("progress", "owned_bgm_paths", owned_bgm_paths)
 	cfg.set_value("progress", "gacha_pity_count", gacha_pity_count)
 	cfg.set_value("progress", "inherit_tickets", inherit_tickets)
+	cfg.set_value("progress", "ads_removed", ads_removed)
+	cfg.set_value("settings", "accepted_terms_version", accepted_terms_version)
 	cfg.set_value("session", "player_id", session_player_id)
 	cfg.set_value("session", "enemy_id", session_enemy_id)
 	cfg.set_value("settings", "skip_cleared_dialogue", skip_cleared_dialogue)
@@ -262,6 +290,8 @@ func load_progress() -> void:
 				"boost_atk": float(entry.get("boost_atk", 0.0)),
 			}
 	inherit_tickets = cfg.get_value("progress", "inherit_tickets", 0)
+	ads_removed = cfg.get_value("progress", "ads_removed", false)
+	accepted_terms_version = cfg.get_value("settings", "accepted_terms_version", 0)
 
 func all_bgm_paths() -> Array[String]:
 	var result: Array[String] = []

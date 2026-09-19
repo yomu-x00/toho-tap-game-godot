@@ -9,6 +9,8 @@ extends Node
 # 画面下のバナーは show_banner()/hide_banner() で出し入れし、高さは
 # banner_height_changed(高さ[物理px]) で通知する(UIをバナー分だけ避けるために使う)。
 # 起動時広告(App Open)は初回ロード完了時と、バックグラウンド復帰時に自動で表示する。
+# 広告削除(課金)を購入済みなら、バナー・インタースティシャル・起動時広告は出さない。
+# 動画リワードは報酬目当てに自分で見るものなので購入後も残す。
 # エディタやPC実行では AdMob プラグインが存在しないため、擬似視聴モードで
 # 即座に成功を返す(ゲームロジック側の開発・検証用)。
 
@@ -83,21 +85,78 @@ var _app_open_showing := false
 var _plugin_available := false
 # プラグインが無い環境で擬似視聴を許可するか(エディタ・PCのみ)
 var _fake_mode := false
+# MobileAds.initialize を呼んだか(同意フローの各経路から二重に呼ばないため)
+var _ads_initialized := false
 
 func _ready() -> void:
 	_plugin_available = Engine.has_singleton("PoingGodotAdMob")
 	if _plugin_available:
-		# v5 では初期化完了を待ってから広告をロードする必要がある
-		var init_listener := OnInitializationCompleteListener.new()
-		init_listener.on_initialization_complete = func(_status: InitializationStatus) -> void:
-			_load_ad()
-			_load_interstitial()
-			_load_app_open()
-		MobileAds.initialize(init_listener)
+		# 初回はタイトルの年齢確認・規約同意が済んでから、ATT などの同意画面と広告を始める
+		if GameState.has_accepted_terms():
+			_gather_consent()
+		else:
+			GameState.terms_accepted.connect(_gather_consent, CONNECT_ONE_SHOT)
 	else:
 		# 実機以外は擬似モード。モバイル実機でプラグインが無い場合は
 		# 導入ミスに気付けるよう擬似モードにはしない(常に利用不可)
 		_fake_mode = OS.has_feature("editor") or OS.get_name() in ["Windows", "macOS", "Linux"]
+
+# 広告SDKの初期化前に、UMP で同意を集める。AdMob 管理画面の「プライバシーとメッセージ」で
+# 設定したメッセージ(EU向けGDPR同意・iOSのIDFA説明)が必要な人にだけ表示され、
+# IDFA説明のあとに iOS の ATT(トラッキング許可)ダイアログが出る。
+# 同意の取得に失敗しても広告は出したいので、どの経路でも最後は _initialize_ads() に進む。
+func _gather_consent() -> void:
+	if not Engine.has_singleton("PoingGodotAdMobConsentInformation"):
+		_initialize_ads()
+		return
+	UserMessagingPlatform.consent_information.update(
+		ConsentRequestParameters.new(), _on_consent_info_updated, _on_consent_error)
+
+func _on_consent_info_updated() -> void:
+	var consent := UserMessagingPlatform.consent_information
+	var required := consent.get_consent_status() == ConsentInformation.ConsentStatus.REQUIRED
+	if not required or not consent.get_is_consent_form_available():
+		_initialize_ads()
+		return
+	UserMessagingPlatform.load_consent_form(_on_consent_form_loaded, _on_consent_error)
+
+func _on_consent_form_loaded(form: ConsentForm) -> void:
+	form.show(_on_consent_form_dismissed)
+
+func _on_consent_form_dismissed(error: FormError) -> void:
+	if error:
+		push_warning("AdManager: 同意フォームのエラー " + str(error.message))
+	_initialize_ads()
+
+func _on_consent_error(error: FormError) -> void:
+	push_warning("AdManager: 同意情報の取得失敗 " + str(error.message))
+	_initialize_ads()
+
+func _initialize_ads() -> void:
+	if _ads_initialized:
+		return
+	_ads_initialized = true
+	# v5 では初期化完了を待ってから広告をロードする必要がある
+	var init_listener := OnInitializationCompleteListener.new()
+	init_listener.on_initialization_complete = func(_status: InitializationStatus) -> void:
+		_load_ad()
+		if not GameState.ads_removed:
+			_load_interstitial()
+			_load_app_open()
+	MobileAds.initialize(init_listener)
+
+# 広告削除を購入した直後に呼ぶ(IAPManager から)。表示中のバナーも消す
+func on_ads_removed() -> void:
+	if _banner != null:
+		_banner.destroy()
+		_banner = null
+	if _interstitial_ad != null:
+		_interstitial_ad.destroy()
+		_interstitial_ad = null
+	if _app_open_ad != null:
+		_app_open_ad.destroy()
+		_app_open_ad = null
+	banner_height_changed.emit(0)
 
 # エディタ・PCの擬似モードか(バナーのプレースホルダー表示などに使う)
 func is_fake_mode() -> bool:
@@ -105,7 +164,7 @@ func is_fake_mode() -> bool:
 
 # 現在レイアウトで確保すべきバナー高さ(物理px)。画面サイズ変更時の再計算にも使う。
 func get_banner_height_px() -> int:
-	if not _banner_visible:
+	if not _banner_visible or GameState.ads_removed:
 		return 0
 	if _fake_mode:
 		var height := DisplayServer.window_get_size().y
@@ -200,6 +259,9 @@ func _retry_load() -> void:
 # インタースティシャル広告を表示する。閉じられた・表示できなかった、どちらの場合も
 # on_closed が呼ばれるので、呼び出し側はゲーム進行をそこに続ければよい。
 func show_interstitial(on_closed: Callable = Callable()) -> void:
+	if GameState.ads_removed:
+		_call_if_valid(on_closed)
+		return
 	if _fake_mode:
 		await get_tree().create_timer(FAKE_WATCH_SECONDS).timeout
 		print("AdManager: 擬似インタースティシャル表示完了")
@@ -254,6 +316,9 @@ func _load_interstitial() -> void:
 # 画面下にアダプティブバナーを表示する。ロード完了後に banner_height_changed を発火する
 func show_banner() -> void:
 	_banner_visible = true
+	if GameState.ads_removed:
+		banner_height_changed.emit(0)
+		return
 	if _fake_mode:
 		# エディタ・PCでもレイアウト確認できるよう、バナー相当の高さだけ通知する
 		banner_height_changed.emit(get_banner_height_px())
@@ -318,7 +383,7 @@ func _load_app_open() -> void:
 	AppOpenAdLoader.new().load(unit_id, AdRequest.new(), callback)
 
 func _try_show_app_open() -> void:
-	if _fake_mode or not _plugin_available or _app_open_showing:
+	if _fake_mode or not _plugin_available or _app_open_showing or GameState.ads_removed:
 		return
 	var now := Time.get_unix_time_from_system()
 	if now - _app_open_last_shown_at < APP_OPEN_MIN_INTERVAL_SECONDS:
