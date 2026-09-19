@@ -22,6 +22,13 @@ const BGM_DISC_ICON := preload("res://assets/sprites/ui/bgm_disc.svg")
 @onready var gacha_button: Button = $MenuPanel/Buttons/GachaButton
 @onready var gallery_button: Button = $MenuPanel/Buttons/GalleryButton
 @onready var title_button: Button = $MenuPanel/Buttons/TitleButton
+@onready var shop_button: Button = $MenuPanel/Buttons/ShopButton
+
+@onready var shop_panel: Panel = $ShopPanel
+@onready var shop_buy_button: Button = $ShopPanel/BuyButton
+@onready var shop_restore_button: Button = $ShopPanel/RestoreButton
+@onready var shop_status_label: Label = $ShopPanel/StatusLabel
+@onready var shop_close: Button = $ShopPanel/CloseButton
 
 @onready var char_panel: Panel = $CharPanel
 @onready var player_list: VBoxContainer = $CharPanel/Columns/PlayerColumn/PlayerScroll/PlayerList
@@ -40,6 +47,8 @@ const BGM_DISC_ICON := preload("res://assets/sprites/ui/bgm_disc.svg")
 @onready var se_slider: HSlider = $VolumePanel/SESlider
 @onready var skip_talk_check: Button = $VolumePanel/SkipTalkCheck
 @onready var volume_close: Button = $VolumePanel/CloseButton
+@onready var terms_button: Button = $VolumePanel/TermsButton
+@onready var privacy_button: Button = $VolumePanel/PrivacyButton
 
 @onready var gacha_panel: Panel = $GachaPanel
 @onready var roll_button: Button = $GachaPanel/RollButton
@@ -95,6 +104,19 @@ func _ready() -> void:
 	gacha_button.pressed.connect(_on_gacha_button)
 	gallery_button.pressed.connect(func(): gallery_requested.emit())
 	title_button.pressed.connect(func(): title_requested.emit())
+	shop_button.pressed.connect(_on_shop_button)
+	for b in [terms_button, privacy_button]:
+		_style_list_button(b)
+	terms_button.pressed.connect(OS.shell_open.bind(GameState.TERMS_URL))
+	privacy_button.pressed.connect(OS.shell_open.bind(GameState.PRIVACY_URL))
+	shop_close.pressed.connect(_close_sub_panel.bind(shop_panel))
+	for b in [shop_buy_button, shop_restore_button]:
+		_style_list_button(b)
+	shop_buy_button.pressed.connect(_on_shop_buy)
+	shop_restore_button.pressed.connect(_on_shop_restore)
+	IAPManager.ads_removed_changed.connect(func(_removed: bool) -> void: _refresh_shop())
+	IAPManager.product_info_updated.connect(_refresh_shop)
+	IAPManager.purchase_failed.connect(_on_shop_failed)
 	char_close.pressed.connect(_close_sub_panel.bind(char_panel))
 	bgm_close.pressed.connect(_close_sub_panel.bind(bgm_panel))
 	volume_close.pressed.connect(_close_sub_panel.bind(volume_panel))
@@ -141,7 +163,7 @@ func setup(chars: Array[CharacterData]) -> void:
 func close_wheel() -> void:
 	_wheel_open = false
 	_set_wheel_buttons_visible(false)
-	for p in [char_panel, bgm_panel, volume_panel, gacha_panel, inherit_panel]:
+	for p in [char_panel, bgm_panel, volume_panel, gacha_panel, inherit_panel, shop_panel]:
 		p.hide()
 	if gacha_video_overlay.visible:
 		gacha_video_player.stop()
@@ -164,7 +186,7 @@ func _set_wheel_buttons_visible(open: bool) -> void:
 	toggle_button.visible = not open
 	if not open:
 		return
-	var buttons := [char_button, bgm_button, gacha_button, gallery_button, volume_button, title_button]
+	var buttons := [char_button, bgm_button, gacha_button, gallery_button, volume_button, shop_button, title_button]
 	var tween := create_tween()
 	var delay := 0.0
 	for b in buttons:
@@ -173,7 +195,7 @@ func _set_wheel_buttons_visible(open: bool) -> void:
 		delay += 0.05
 
 func _open_panel(panel: Panel) -> void:
-	for p in [char_panel, bgm_panel, volume_panel, gacha_panel, inherit_panel]:
+	for p in [char_panel, bgm_panel, volume_panel, gacha_panel, inherit_panel, shop_panel]:
 		p.hide()
 	menu_panel.hide()
 	panel.show()
@@ -182,6 +204,33 @@ func _close_sub_panel(panel: Panel) -> void:
 	panel.hide()
 	if _wheel_open:
 		menu_panel.show()
+
+# --- 広告削除(課金) ---
+func _on_shop_button() -> void:
+	shop_status_label.text = ""
+	_refresh_shop()
+	_open_panel(shop_panel)
+
+func _refresh_shop() -> void:
+	if IAPManager.ads_removed:
+		shop_buy_button.text = "購入済み"
+		shop_buy_button.disabled = true
+		shop_status_label.text = "広告は表示されません。ありがとうございます！"
+		return
+	var price := IAPManager.remove_ads_price
+	shop_buy_button.text = "購入する（%s）" % price if price != "" else "購入する"
+	shop_buy_button.disabled = false
+
+func _on_shop_buy() -> void:
+	shop_status_label.text = "購入処理中..."
+	IAPManager.purchase_remove_ads()
+
+func _on_shop_restore() -> void:
+	shop_status_label.text = "復元中..."
+	IAPManager.restore_purchases()
+
+func _on_shop_failed(message: String) -> void:
+	shop_status_label.text = message
 
 func _on_char_button() -> void:
 	_rebuild_char_lists()
