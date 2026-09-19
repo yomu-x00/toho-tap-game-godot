@@ -7,3 +7,12 @@ reisen-image/
 gemini_generated_video_*.mp4
 
 build/
+
+# ローカル設定・署名鍵
+.env
+.env.*
+!.env.example
+*.p12
+*.mobileprovision
+*.keystore
+*.jks
