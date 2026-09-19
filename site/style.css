@@ -1,0 +1,71 @@
+:root {
+  --bg: #f7f5ef;
+  --surface: #ffffff;
+  --text: #22212a;
+  --muted: #62606d;
+  --accent: #a8322d;
+  --border: #e3dfd3;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15141b;
+    --surface: #1e1d26;
+    --text: #ecebf2;
+    --muted: #a6a4b3;
+    --accent: #e8c979;
+    --border: #33313f;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+  line-height: 1.8;
+  font-size: 16px;
+}
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+}
+header.site {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+header.site a.home {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 14px;
+}
+h1 { font-size: 1.6rem; margin: 8px 0 0; line-height: 1.4; }
+h2 {
+  font-size: 1.1rem;
+  margin: 32px 0 8px;
+  padding-left: 10px;
+  border-left: 4px solid var(--accent);
+}
+p, li { overflow-wrap: anywhere; }
+ul, ol { padding-left: 1.4em; }
+a { color: var(--accent); }
+.muted { color: var(--muted); font-size: 14px; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 16px 0;
+}
+nav.links { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
+nav.links a {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  text-decoration: none;
+  font-weight: bold;
+}
+footer { margin-top: 48px; color: var(--muted); font-size: 13px; text-align: center; }
